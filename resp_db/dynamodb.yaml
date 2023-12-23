@@ -1,0 +1,137 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >-
+  Creates the RESP DynamoDB Task table, and associated global secondary indexes.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Resource Management
+        Parameters:
+          - Name
+          - Owner
+          - Project
+
+      - Label:
+          default: DynamoDB
+
+Parameters:
+  Name:
+    Type: String
+    Description: >-
+      A String that can be used to Identify Resources created by this Template.
+      Resources may use this Parameter when creating the Name Tag. The Name Tag
+      is commonly used by the AWS Console to provide a friendlier name to
+      Resources. This may be used to form part of a Name Tag.
+    Default: WeiHengPractice
+
+  Owner:
+    Type: String
+    Description: >-
+      The email address for the Team that owns the Resources created by this
+      Template.
+    AllowedPattern: ^(.*@gmail\.(io|com|tv),?)+$
+    ConstraintDescription: Must be an evertz.com,.io or .tv email address
+    Default: weihengyans@gmail.com
+
+  Project:
+    Type: String
+    Description: >-
+      The name of the Project that the Resources created by this Template
+      belong to. A Team may own many Projects.
+    Default: RESP
+
+Resources:
+  RESPTable:
+    Type: 'AWS::DynamoDB::Table'
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk-1
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk-1
+          KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: True
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      BillingMode: PAY_PER_REQUEST
+
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: True
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Name
+          Value: !Ref Name
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: Project
+          Value: !Ref Project
+        - Key: Group
+          Value: RBC RESP
+
+
+  RESPDynamoDBRead:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: 'Read Only Access to a Tag DynamoDB Table'
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:GetItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:DescribeTable
+            Resource:
+              - !GetAtt RESPTable.Arn
+              - !Sub ${RESPTable.Arn}/index/*
+
+  RESPDynamoDBWrite:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: 'Write Access to a Tag DynamoDB Table'
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:BatchWriteItem
+              - dynamodb:DeleteItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DescribeTable
+            Resource:
+              - !GetAtt RESPTable.Arn
+Outputs:
+  TagTableName:
+    Description: The name of the DynamoDB Tag Service Table
+    Value: !Ref RESPTable
+
+  TagTableARN:
+    Description: The ARN of the DynamoDB Tag Service Table
+    Value: !GetAtt RESPTable.Arn
+
+  TagDBTableStreamARN:
+    Description: The ARN of the DynamoDB Stream
+    Value: !GetAtt RESPTable.StreamArn
+
+  DatabaseReadPolicyArn:
+    Description: The ARN of the DynamoDB Read Policy
+    Value: !Ref RESPDynamoDBRead
+
+  DatabaseWritePolicyArn:
+    Description: The ARN of the DynamoDB Write Policy
+    Value: !Ref RESPDynamoDBWrite

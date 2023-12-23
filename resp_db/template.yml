@@ -1,0 +1,177 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  Name:
+    Type: String
+    Description: >-
+      A String that can be used to Identify Resources created by this Template.
+      Resources may use this Parameter when creating the Name Tag. The Name Tag
+      is commonly used by the AWS Console to provide a friendlier name to
+      Resources. This may be used to form part of a Name Tag.
+    Default: WeiHengPractice
+
+  Owner:
+    Type: String
+    Description: >-
+      The email address for the Team that owns the Resources created by this
+      Template.
+    AllowedPattern: ^(.*@gmail\.(io|com|tv),?)+$
+    ConstraintDescription: Must be an evertz.com,.io or .tv email address
+    Default: weihengyans@gmail.com
+
+  Project:
+    Type: String
+    Description: >-
+      The name of the Project that the Resources created by this Template
+      belong to. A Team may own many Projects.
+    Default: IaC
+
+Resources:
+  RegisterInput:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      Policies:
+          - !GetAtt DynamoDB.Outputs.DatabaseWritePolicyArn
+      CodeUri: resp_db/
+      Handler: apigateway_handler.register_input_handler
+      Runtime: python3.9
+      Architectures:
+      - x86_64
+      Events:
+        HelloWorld:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /store
+            Method: post
+    
+  RetrieveByMonth:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      Policies:
+          - !GetAtt DynamoDB.Outputs.DatabaseReadPolicyArn
+      CodeUri: resp_db/
+      Handler: apigateway_handler.retrieve_by_month_handler
+      Runtime: python3.9
+      Architectures:
+      - x86_64
+      Events:
+        HelloWorld:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /find/month
+            Method: get
+  
+  RetrieveByClerk:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      Policies:
+          - !GetAtt DynamoDB.Outputs.DatabaseReadPolicyArn
+      CodeUri: resp_db/
+      Handler: apigateway_handler.retrieve_by_clerk_handler
+      Runtime: python3.9
+      Architectures:
+      - x86_64
+      Events:
+        HelloWorld:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /find/clerkId
+            Method: get
+
+
+  RetrieveAll:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      Policies:
+          - !GetAtt DynamoDB.Outputs.DatabaseReadPolicyArn
+      CodeUri: resp_db/
+      Handler: apigateway_handler.retrieve_all
+      Runtime: python3.9
+      Architectures:
+      - x86_64
+      Events:
+        HelloWorld:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /findAll
+            Method: get
+
+
+  DynamoDB:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: dynamodb.yaml
+      TimeoutInMinutes: 10
+      Parameters:
+        Name: !Sub ${Name}
+        Owner: !Ref Owner
+        Project: !Ref Project
+
+        # !GetAtt DynamoDB.Outputs.TagTableName
+        # !GetAtt DynamoDB.Outputs.TagTableARN
+        # !GetAtt DynamoDB.Outputs.TagDBTableStreamARN
+        # !GetAtt DynamoDB.Outputs.DatabaseReadPolicyArn
+        # !GetAtt DynamoDB.Outputs.DatabaseWritePolicyArn
+
+  ApplicationResourceGroup:
+    Type: AWS::ResourceGroups::Group
+    Properties:
+      Name:
+        Fn::Join:
+        - ''
+        - - ApplicationInsights-SAM-
+          - Ref: AWS::StackName
+      ResourceQuery:
+        Type: CLOUDFORMATION_STACK_1_0
+
+
+  ApplicationInsightsMonitoring:
+    Type: AWS::ApplicationInsights::Application
+    Properties:
+      ResourceGroupName:
+        Fn::Join:
+        - ''
+        - - ApplicationInsights-SAM-
+          - Ref: AWS::StackName
+      AutoConfigurationEnabled: 'true'
+    DependsOn: ApplicationResourceGroup
+
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  PostApi:
+    Description: API Gateway endpoint URL for Prod stage for Hello World function
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/store/"
+  GetMonthApi:
+    Description: API Gateway endpoint URL for Prod stage for Hello World function
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/find/month"
+  GetClerkApi:
+    Description: API Gateway endpoint URL for Prod stage for Hello World function
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/find/clerk"
+  RegisterInput:
+    Description: Hello World Lambda Function ARN
+    Value: !GetAtt RegisterInput.Arn
+  RetrieveByMonth:
+    Description: Hello World Lambda Function ARN
+    Value: !GetAtt RetrieveByMonth.Arn
+  RetrieveByClerk:
+    Description: Hello World Lambda Function ARN
+    Value: !GetAtt RetrieveByClerk.Arn
+  RetrieveAll:
+    Description: Hello World Lambda Function ARN
+    Value: !GetAtt RetrieveAll.Arn
+  RegisterInputIamRole:
+    Description: Implicit IAM Role created for Hello World function
+    Value: !GetAtt RegisterInput.Arn
+  RetrieveByMonthIamRole:
+    Description: Implicit IAM Role created for Hello World function
+    Value: !GetAtt RetrieveByMonth.Arn
+  RetrieveByClerkIamRole:
+    Description: Implicit IAM Role created for Hello World function
+    Value: !GetAtt RetrieveByClerk.Arn
+  RetrieveAllIamRole:
+    Description: Implicit IAM Role created for Hello World function
+    Value: !GetAtt RetrieveAll.Arn
